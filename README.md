@@ -2,7 +2,7 @@
 
 **v0.1 · Phase 0 feasibility / pre-production**
 
-Pelita is a planned free and open-source desktop projection application for Seventh-day Adventist churches, shaped by Sabbath worship workflows in Sabah, Malaysia. A volunteer should be able to run a service from one offline playlist, including advancing lyric slides manually while accompaniment keeps playing. Windows, macOS, and Linux are target platforms. English is the initial interface language.
+Pelita is a planned free and open-source desktop projection application for Seventh-day Adventist churches, shaped by Sabbath worship workflows. A volunteer should be able to run a service from one offline playlist, including advancing lyric slides manually while accompaniment keeps playing. Windows, macOS, and Linux are target platforms. English is the initial interface language.
 
 Pelita is an independent project. Pelita source is available under the [MIT license](LICENSE). LPMI (Lagu Pujian Masa Ini) is planned as an optional songbook, with distribution subject to documented permissions.
 

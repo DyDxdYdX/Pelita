@@ -1,6 +1,6 @@
 # Product vision
 
-Small SDA congregations in Sabah need a presentation workflow a volunteer can rehearse and run without internet access. Quelea works reliably in the originating church, but LPMI lyric videos cover only part of the collection. For other songs, operators advance PowerPoint lyrics while playing an MP3 separately in VLC. Some congregations project PowerPoint using duplicated or extended displays.
+Small SDA congregations need a presentation workflow a volunteer can rehearse and run without internet access. Quelea works reliably in the originating church, but LPMI lyric videos cover only part of the collection. For other songs, operators advance PowerPoint lyrics while playing an MP3 separately in VLC. Some congregations project PowerPoint using duplicated or extended displays.
 
 Pelita brings those workflows into one service queue. The first live-service target is a volunteer running a prepared Sabbath program with text, slides, video, and manually paced lyrics over local accompaniment. Keep live controls predictable and make recovery possible without leaving the operator screen.
 

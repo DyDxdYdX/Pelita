@@ -2,7 +2,7 @@
 
 LPMI is an optional songbook pack. The generic songbook format can be built and tested with invented material independently of permission negotiations. Pelita is an independent project.
 
-Contact Sabah Mission to identify publishers, authors, translators, arrangers and recording owners, and to ask about cooperation. Treat ownership and authority as unverified until documented. Inventory lyrics, translations, numbering and catalog data, slide layouts and images, arrangements, recordings, and video separately. Malaysia's Copyright Act distinguishes several controlled uses. Get qualified advice for the intended release and jurisdiction if scope or authority is unclear. [MyIPO text of Copyright Act 1987](https://www.myipo.gov.my/wp-content/uploads/2025/02/Lampiran-A1-ENG-Akta-Hak-Cipta-setakat-22-Jun-2023.pdf)
+Contact the relevant publisher or rights holders to identify authors, translators, arrangers and recording owners, and to ask about cooperation. Treat ownership and authority as unverified until documented. Inventory lyrics, translations, numbering and catalog data, slide layouts and images, arrangements, recordings, and video separately. Get qualified advice for the intended release and jurisdictions if scope or authority is unclear.
 
 | Stage | Evidence and action |
 | --- | --- |
