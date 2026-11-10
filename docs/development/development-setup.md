@@ -1,6 +1,6 @@
 # Development setup
 
-Pelita is at the documentation stage. The setup below describes prerequisites and handoff for authorized Phase 0 work.
+The [Phase 0 spike](../../spikes/phase-0/README.md) is isolated from application code. Follow the [feasibility record](phase-0.md) for the matrix and acceptance gate.
 
 | Host | Preparation |
 | --- | --- |
@@ -13,12 +13,13 @@ Follow the official platform-specific package list for the toolchain being teste
 
 ## Implementation handoff
 
-- [ ] Confirm the first test host, target OS/session matrix and baseline machine.
-- [ ] Create a rights-cleared fixture set and a manual rehearsal checklist tied to requirement IDs.
-- [ ] Set an evidence deadline and a decision owner for each Phase 0 question.
-- [ ] Record toolchain and runtime versions, then scaffold an isolated spike once implementation is authorized.
+- [x] Select the first host and record the candidate OS/session matrix.
+- [ ] Confirm physical display access on the first host and provision the baseline machine.
+- [x] Create a rights-cleared fixture set and a manual rehearsal checklist tied to requirement IDs.
+- [x] Set an evidence deadline and a decision owner for each Phase 0 question.
+- [x] Record initial toolchain and runtime versions, then scaffold an isolated spike once implementation is authorized.
 - [ ] Run the [first milestone](milestones.md) and record pass, fallback or blocker by target.
 - [ ] Update the [framework ADR](../decisions/0001-desktop-framework.md), support floor and performance budgets before Phase 1.
-- [ ] Settle the source license before accepting public contributions or distributing builds. Track LPMI outreach separately.
+- [x] Select the source license before accepting public contributions or distributing builds. Track LPMI outreach separately.
 
 After the framework decision, document the real build and dev commands, pin the toolchain and check in dependency lockfiles. Keep machine-specific paths and signing credentials outside the repository. Development data should live in a separate profile from church production data.

@@ -1,0 +1,4 @@
+/web/fixtures/*
+!/web/fixtures/.gitkeep
+/src-tauri/target/
+/src-tauri/gen/

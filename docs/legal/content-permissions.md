@@ -13,3 +13,10 @@ Contact Sabah Mission to identify publishers, authors, translators, arrangers an
 | Maintain | Review permissions for new assets or changed terms. Provide a rights contact and process for withdrawing affected registry entries and downloads. Track that offline copies may persist. |
 
 Local possession and app import provide a technical ability to present files. Confirm applicable rights for the actual local use separately. If permission is unclear, use invented or cleared content for public demos and tests. See [extension format](../architecture/extension-system.md) and [application licensing](licensing.md).
+
+## Phase 0 rights register · 10 November 2026
+
+| Asset group | Authority and evidence | Status |
+| --- | --- | --- |
+| Invented slides and document probes, generated MP3 and MP4 | First-party synthetic fixtures recorded in the [spike provenance](../../spikes/phase-0/fixtures/README.md) | Cleared for Phase 0 use |
+| LPMI lyrics, translations, numbering and catalog, arrangements, images, recordings and videos | Rights holders, scope and terms unverified. No grant recorded. | Pending identification. Excluded from fixtures and distribution. |

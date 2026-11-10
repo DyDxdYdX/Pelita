@@ -19,3 +19,5 @@ Use Tauri 2 with a Rust application core and React/TypeScript webviews for the f
 ## Acceptance gate
 
 Record packaged results for independent audio and slides, local video, monitor enumeration and targeting, privacy, hot-plug recovery, keyboard operation, startup and memory. Validate PDF import separately. If a candidate fails, try a bounded adapter or operating-mode fallback. Compare Electron if Tauri-specific constraints still block the required workflow. Accept the framework only when tested targets have a usable support floor and the remaining gaps have explicit limitations or follow-up decisions. Keep measured results and the maintainer decision with the ADR. See [milestones](../development/milestones.md) and [stack evaluation](../architecture/tech-stack.md).
+
+The [Phase 0 evidence record](../development/phase-0.md) tracks the review deadline, target matrix and blockers.

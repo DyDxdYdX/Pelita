@@ -1,0 +1,14 @@
+{
+  "productName": "Pelita Phase Zero",
+  "version": "0.1.0",
+  "identifier": "org.pelita.phasezero",
+  "build": { "frontendDist": "../web" },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [{ "label": "main", "title": "Pelita Phase 0", "width": 860, "height": 700 }],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self'; media-src 'self' blob:; connect-src 'self' ipc: http://ipc.localhost"
+    }
+  },
+  "bundle": { "active": true, "icon": ["icons/icon.png", "icons/icon.ico", "icons/icon.icns"] }
+}
