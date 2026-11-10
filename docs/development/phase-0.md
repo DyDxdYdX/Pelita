@@ -27,7 +27,7 @@ Test Windows and both Linux session rows only after the first dual-display rehea
 
 ## Implementation scope
 
-Disposable Tauri 2 package in `spikes/phase-0/`. Use local static web assets and vanilla JS for this small probe. React and TypeScript remain part of the proposed application stack. Rust owns the confirmed target, generation and live snapshot. A dedicated projector page starts black, polls its own generation for snapshots, and has no operator controls. The operator page owns the persistent MP3. Confirm only on extended displays with disjoint bounds. A recurring target check retires output on topology change. Reconfirm and Take explicitly after loss. Polling can observe a topology change after the OS has already moved a window, so physical exposure checks are mandatory.
+Disposable Tauri 2 package in `spikes/phase-0/`. Use local static web assets and vanilla JS for this small probe. React and TypeScript remain part of the proposed application stack. Rust owns the confirmed target, generation and live snapshot. A dedicated projector page starts black, polls its own generation for snapshots, and has no operator controls. The operator page owns the persistent MP3. Confirm only on an extended display separate from the operator display. macOS uses CoreGraphics mirror detection because Tauri reports monitor geometry at each display's backing scale. Other targets use disjoint bounds. A recurring target check retires output on topology change. Reconfirm and Take explicitly after loss. Polling can observe a topology change after the OS has already moved a window, so physical exposure checks are mandatory.
 
 Fixtures use invented text and shapes, generated audio and generated video. No imported songbook content. Source-license selection and the LPMI register have independent gates.
 
@@ -48,3 +48,9 @@ Fixtures use invented text and shapes, generated audio and generated video. No i
 | `candidate.mp4` | `27f8bf165fffa1db0576f8bdef75fcc9563ad2fae1eee047094ccc2997b23a7b` |
 | `fidelity.pdf` | `b0879adc7bb3e3dcd58b6988eedcea0513dee7503504f081d877fe0ca387a32b` |
 | `fidelity.pptx` | `10749d5b19ffde8b561fbd69816bc34ea1aaa255bed1e19018530cdd06babfe7` |
+
+### macOS extended-display retest
+
+A hardware screenshot showed REALTEK configured as an extended display while Pelita rejected confirmation. The spike now checks macOS mirroring through CoreGraphics and opens the projector window using logical desktop coordinates before requesting fullscreen. The operator confirmed the rebuilt app works with the built-in and REALTEK extended display pair after retrying display confirmation. Mirror mode and operator-display rejection still need a retest. The full physical rehearsal remains open.
+
+The operator subsequently reported that the manual rehearsal checks worked on the built-in and REALTEK extended setup. Treat this as a reported functional pass for private preview and fullscreen Take, accompaniment during slide changes, MP4 switching, and unplug/reconnect recovery. Loopback measurements, recovery timing and trial counts were not supplied. Mirror/single-display behavior, resource budgets and the other target platforms still require evidence.

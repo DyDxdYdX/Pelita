@@ -5,9 +5,7 @@ use std::{
     sync::Mutex,
     time::{Duration, Instant},
 };
-use tauri::{
-    AppHandle, Manager, PhysicalPosition, State, WebviewUrl, WebviewWindow, WebviewWindowBuilder,
-};
+use tauri::{AppHandle, Manager, State, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 struct Display {
@@ -33,6 +31,7 @@ impl From<tauri::Monitor> for Display {
 }
 
 impl Display {
+    #[cfg(not(target_os = "macos"))]
     fn overlaps(&self, other: &Self) -> bool {
         let (x, y, ox, oy) = (self.x as i64, self.y as i64, other.x as i64, other.y as i64);
         x < ox + other.width as i64
@@ -40,6 +39,30 @@ impl Display {
             && y < oy + other.height as i64
             && oy < y + self.height as i64
     }
+}
+
+#[cfg(target_os = "macos")]
+fn extended_target(target: &Display, operator: &Display, topology: &[Display]) -> bool {
+    use core_graphics::display::CGDisplay;
+
+    // Tao reports each display's geometry at its own backing scale. Comparing
+    // those rectangles can produce a false overlap on an extended desktop.
+    target != operator
+        && topology.len() >= 2
+        && CGDisplay::active_displays().is_ok_and(|ids| {
+            ids.len() == topology.len()
+                && ids.iter().all(|&id| !CGDisplay::new(id).is_in_mirror_set())
+        })
+}
+
+#[cfg(not(target_os = "macos"))]
+fn extended_target(target: &Display, operator: &Display, topology: &[Display]) -> bool {
+    !target.overlaps(operator)
+        && topology
+            .iter()
+            .filter(|display| display.overlaps(target))
+            .count()
+            == 1
 }
 
 #[derive(Clone, Default, Serialize)]
@@ -100,7 +123,9 @@ fn check(app: &AppHandle, session: &mut Session) {
     let operator_clear = app
         .get_webview_window("main")
         .and_then(|main| main.current_monitor().ok().flatten())
-        .is_some_and(|monitor| !output.display.overlaps(&Display::from(monitor)));
+        .is_some_and(|monitor| {
+            extended_target(&output.display, &Display::from(monitor), &output.topology)
+        });
     let opening = !output.ready && output.confirmed_at.elapsed() < Duration::from_secs(5);
     let valid = operator_clear
         && match app.get_webview_window(&output.label) {
@@ -108,13 +133,14 @@ fn check(app: &AppHandle, session: &mut Session) {
             Some(window) => {
                 monitors(&window).is_ok_and(|topology| topology == output.topology)
                     && (opening
-                        || window
-                            .current_monitor()
-                            .ok()
-                            .flatten()
-                            .map(Display::from)
-                            .as_ref()
-                            == Some(&output.display))
+                        || (output.ready
+                            && window
+                                .current_monitor()
+                                .ok()
+                                .flatten()
+                                .map(Display::from)
+                                .as_ref()
+                                == Some(&output.display)))
             }
         };
     if !valid {
@@ -155,13 +181,12 @@ async fn confirm(
         .map_err(describe)?
         .map(Display::from)
         .ok_or("Operator display unavailable")?;
-    if target.overlaps(&operator)
-        || actual
-            .iter()
-            .enumerate()
-            .any(|(i, screen)| i != index && screen.overlaps(&target))
-    {
-        return Err("Extended display required. Mirror and single-display operation are excluded from this spike.".into());
+    if !extended_target(&target, &operator, &actual) {
+        return Err(if target == operator {
+            "The selected display contains the operator window. Choose the other display."
+        } else {
+            "Could not verify an extended display. Refresh the display list and check macOS or system display settings."
+        }.into());
     }
     let label = {
         let mut session = state.lock().map_err(describe)?;
@@ -183,15 +208,22 @@ async fn confirm(
         label
     };
     let result = (|| {
-        let window =
+        let builder =
             WebviewWindowBuilder::new(&app, &label, WebviewUrl::App("projector.html".into()))
                 .visible(false)
                 .decorations(false)
-                .focused(false)
-                .build()
-                .map_err(describe)?;
+                .focused(false);
+        #[cfg(target_os = "macos")]
+        let builder = builder
+            .position(
+                f64::from(target.x) / target.scale + 32.0,
+                f64::from(target.y) / target.scale + 32.0,
+            )
+            .inner_size(320.0, 240.0);
+        let window = builder.build().map_err(describe)?;
+        #[cfg(not(target_os = "macos"))]
         window
-            .set_position(PhysicalPosition::new(target.x, target.y))
+            .set_position(tauri::PhysicalPosition::new(target.x, target.y))
             .map_err(describe)?;
         window.set_fullscreen(true).map_err(describe)?;
         window.show().map_err(describe)
@@ -238,7 +270,8 @@ async fn projector(
     else {
         return Ok(None);
     };
-    if !output.ready {
+    let newly_ready = !output.ready;
+    if newly_ready {
         if window
             .current_monitor()
             .ok()
@@ -259,6 +292,8 @@ async fn projector(
             ..Frame::default()
         };
         session.status = "Video playback failed. Take slides or reopen output to retry.".into();
+    } else if newly_ready {
+        session.status = "Display confirmed. Ready to Take.".into();
     }
     check(&app, &mut session);
     Ok(session.output.as_ref().map(|out| out.frame.clone()))

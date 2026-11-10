@@ -10,3 +10,6 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 serde = { version = "1", features = ["derive"] }
 tauri = { version = "2", features = [] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+core-graphics = "0.25"
