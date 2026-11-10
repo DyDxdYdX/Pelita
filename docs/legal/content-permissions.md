@@ -1,0 +1,15 @@
+# Content permissions and LPMI
+
+LPMI is an optional songbook pack. The generic songbook format can be built and tested with invented material independently of permission negotiations. Pelita is an independent project.
+
+Contact Sabah Mission to identify publishers, authors, translators, arrangers and recording owners, and to ask about cooperation. Treat ownership and authority as unverified until documented. Inventory lyrics, translations, numbering and catalog data, slide layouts and images, arrangements, recordings, and video separately. Malaysia's Copyright Act distinguishes several controlled uses. Get qualified advice for the intended release and jurisdiction if scope or authority is unclear. [MyIPO text of Copyright Act 1987](https://www.myipo.gov.my/wp-content/uploads/2025/02/Lampiran-A1-ENG-Akta-Hak-Cipta-setakat-22-Jun-2023.pdf)
+
+| Stage | Evidence and action |
+| --- | --- |
+| Identify | Log asset, edition, source, claimed rights holder and contact, with status pending, cleared or excluded. Existing PPTX/MP3 copies and downloaded YouTube lyric videos are excluded from release unless specifically cleared. |
+| Request | Describe reproduction and distribution via downloadable offline packs, projection use, format conversion, updates, geographic reach, terms and duration. Seek written terms and verify the grantor's authority for each relevant component. |
+| Assemble | Include only cleared components with exact attributions and license terms. If metadata alone is cleared, publish only that subset. Permit operators to attach local files privately, with no automatic upload or publication. |
+| Publish | Review the asset register against the package inventory, verify grants cover the artifact and registry, and retain the evidence privately. Keep the application release independent of this gate. |
+| Maintain | Review permissions for new assets or changed terms. Provide a rights contact and process for withdrawing affected registry entries and downloads. Track that offline copies may persist. |
+
+Local possession and app import provide a technical ability to present files. Confirm applicable rights for the actual local use separately. If permission is unclear, use invented or cleared content for public demos and tests. See [extension format](../architecture/extension-system.md) and [application licensing](licensing.md).
