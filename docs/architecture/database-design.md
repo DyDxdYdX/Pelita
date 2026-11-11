@@ -1,6 +1,6 @@
 # Local data design
 
-Proposed SQLite model. Keep media bytes outside SQLite and keep user-authored data separate from installed pack data. Use opaque stable IDs and explicit foreign keys. Phase 1 needs only settings, assets, deck snapshots and playlists.
+The Phase 1 pilot uses a [versioned service document and managed media files](../development/phase-1.md). The SQLite model below is proposed for the searchable library. Keep media bytes outside SQLite and user-authored data separate from installed pack data. Preserve stable IDs when migrating pilot services.
 
 | Entity | Fields and invariants |
 | --- | --- |

@@ -1,0 +1,36 @@
+{
+  "productName": "Pelita",
+  "version": "0.1.0",
+  "identifier": "org.pelita.desktop",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build",
+    "devUrl": "http://localhost:1420",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "label": "main",
+        "title": "Pelita",
+        "width": 1440,
+        "height": 920,
+        "minWidth": 580,
+        "minHeight": 580,
+        "backgroundThrottling": "disabled"
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; worker-src 'self' blob:; img-src 'self' blob: data: pelita: http://pelita.localhost; media-src 'self' blob: pelita: http://pelita.localhost; connect-src 'self' ipc: http://ipc.localhost"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "icon": [
+      "icons/icon.png",
+      "icons/icon.ico",
+      "icons/icon.icns"
+    ]
+  }
+}

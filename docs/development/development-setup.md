@@ -23,3 +23,25 @@ Follow the official platform-specific package list for the toolchain being teste
 - [x] Select the source license before accepting public contributions or distributing builds. Track LPMI outreach separately.
 
 After the framework decision, document the real build and dev commands, pin the toolchain and check in dependency lockfiles. Keep machine-specific paths and signing credentials outside the repository. Development data should live in a separate profile from church production data.
+
+
+## Phase 1 desktop app
+
+The application is in `app/`. The macOS pilot was built with Rust and Cargo 1.94.0, Node 24.22.0, Tauri 2.12.5 and CLI 2.12.4. Use the checked-in Cargo and npm lockfiles and install the platform prerequisites above.
+
+```sh
+cd app
+npm ci
+npx --yes @tauri-apps/cli@2.12.4 dev
+```
+
+To check and build a local macOS debug app bundle from the same directory:
+
+```sh
+npm run build
+cargo test --locked --manifest-path src-tauri/Cargo.toml
+npx --yes @tauri-apps/cli@2.12.4 build --debug --bundles app
+codesign --force --sign - src-tauri/target/debug/bundle/macos/Pelita.app
+```
+
+Open `src-tauri/target/debug/bundle/macos/Pelita.app` for the rehearsal. Debug builds use the `development` subdirectory of the application data directory. Set `PELITA_DEV_PROFILE` to an absolute scratch directory when testing preflight, profile locking or recovery. Copy the profile while Pelita is closed to back up `services.json` and its managed `media/` together. The test package contains the frontend, PDF worker and PDF resources. A runtime network connection is unnecessary.
