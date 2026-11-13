@@ -429,7 +429,7 @@ function App() {
 
   return <div className="workspace">
     <header className="topbar">
-      <div className="brand"><span className="brand-mark"><Icon name="flame" size={22} /></span><span>Pelita</span></div>
+      <div className="brand"><span className="brand-mark"><img src="/brand/pelita-symbol.png" alt="" /></span><span>Pelita</span></div>
       <div className="top-actions">
         <span className={`pill ${status.ready ? 'online' : ''}`}><span className="dot" />{status.ready ? 'Output connected' : status.opening ? 'Connecting' : 'Output offline'}</span>
         <IconButton icon="keyboard" label="Keyboard shortcuts" onClick={() => setDialog('shortcuts')} />

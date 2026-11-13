@@ -1,3 +1,5 @@
+<p align="center"><img src="app/public/brand/pelita-wordmark.png" alt="Pelita logo" width="320"></p>
+
 # Pelita
 
 **A simpler way to prepare and present a worship service.**
@@ -60,3 +62,4 @@ Pelita's own source code is released under the [MIT license](LICENSE). That lice
 - [Troubleshooting](docs/user/troubleshooting.md)
 - [Contributing](CONTRIBUTING.md)
 - [Developer Documentation](docs/developer/README.md)
+- [Brand and operator theme](docs/product/brand-theme.md)
