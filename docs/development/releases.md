@@ -13,7 +13,7 @@ CI runs TypeScript validation, the Vite build, `cargo fmt --check`, Clippy with 
 
 ## Local checks and bundles
 
-Install the platform prerequisites in [development setup](development-setup.md), Rust 1.94.0, Node 24, and npm. From the repository root:
+Install the platform prerequisites in [development setup](development-setup.md), Rust 1.94.0, Node 24, npm, and Python 3.11 or newer for the release checker. The workflow uses Python 3.12. From the repository root:
 
 ```sh
 cd app
@@ -40,4 +40,4 @@ The workflow requires Actions enabled and the repository's `GITHUB_TOKEN` allowe
 
 Windows installers are unsigned and may show SmartScreen warnings. macOS DMGs have an ad-hoc signature but no Developer ID signature or notarization; Gatekeeper may require user approval in Privacy & Security. Do not disable system security protections. For a production signed release, add signing identities and notarization credentials through protected GitHub secrets and follow Tauri's platform signing guides. Automatic updates need a separate design, updater signing keys, and compatibility testing; none are configured here.
 
-For failed CI, read the failing job's first error: npm lock drift fails `npm ci`; Rust lock drift fails `--locked`; TypeScript, Clippy, formatting, and tests each have separate steps. On Linux, check the WebKitGTK 4.1 and AppImage system packages. A missing bundle or failed matrix job prevents publication. Re-run a fixed tag workflow only after reviewing its source commit; use a new version tag for changed release content. A green workflow verifies builds, not live projection, media codecs, upgrades, or offline rehearsal on physical target machines.
+For failed CI, read the failing job's first error: npm lock drift fails `npm ci`; Rust lock drift fails `--locked`; TypeScript, Clippy, formatting, and tests each have separate steps. On Linux, check the WebKitGTK 4.1 and AppImage system packages. A missing bundle or failed matrix job prevents publication. GitHub reruns use the original tag commit, so a workflow fix requires a new version commit and tag. A green workflow verifies builds, not live projection, media codecs, upgrades, or offline rehearsal on physical target machines.
