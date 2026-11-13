@@ -1,0 +1,143 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  version:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check tag and metadata versions
+        env:
+          RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+        run: python3 scripts/release.py check-version ${RELEASE_TAG:+--tag "$RELEASE_TAG"}
+
+  checks:
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
+  build:
+    needs: [version, checks]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-x86_64
+            runner: windows-2022
+            target: x86_64-pc-windows-msvc
+            bundles: nsis
+            bundle_root: app/src-tauri/target/x86_64-pc-windows-msvc/release/bundle
+          - platform: macos-aarch64
+            runner: macos-15
+            target: aarch64-apple-darwin
+            bundles: dmg
+            bundle_root: app/src-tauri/target/aarch64-apple-darwin/release/bundle
+          - platform: macos-x86_64
+            runner: macos-15-intel
+            target: x86_64-apple-darwin
+            bundles: dmg
+            bundle_root: app/src-tauri/target/x86_64-apple-darwin/release/bundle
+          - platform: linux-x86_64
+            runner: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            bundles: appimage,deb
+            bundle_root: app/src-tauri/target/x86_64-unknown-linux-gnu/release/bundle
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.94.0
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: app/src-tauri
+          key: ${{ matrix.platform }}
+      - name: Install Tauri Linux dependencies
+        if: matrix.platform == 'linux-x86_64'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf xdg-utils libfuse2
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: app
+      - name: Install pinned Tauri CLI
+        run: npm install --global @tauri-apps/cli@2.12.4
+      - name: Build native installer
+        uses: tauri-apps/tauri-action@v1
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ startsWith(matrix.platform, 'macos-') && '-' || '' }}
+        with:
+          projectPath: app
+          tauriScript: tauri
+          args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
+      - name: Stage and validate installers
+        env:
+          RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+          PLATFORM: ${{ matrix.platform }}
+          BUNDLE_ROOT: ${{ matrix.bundle_root }}
+        shell: bash
+        run: python scripts/release.py stage ${RELEASE_TAG:+--tag "$RELEASE_TAG"} --platform "$PLATFORM" --source "$BUNDLE_ROOT" --directory release-assets
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installer-${{ matrix.platform }}
+          path: release-assets/*
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    if: github.event_name == 'push'
+    needs: [version, checks, build]
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: installer-*
+          path: release-assets
+          merge-multiple: true
+      - name: Verify complete release
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: python3 scripts/release.py verify --tag "$RELEASE_TAG" --directory release-assets
+      - name: Create draft, verify uploads, and publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if release_draft=$(gh release view "$RELEASE_TAG" --json isDraft --jq '.isDraft' 2>/dev/null); then
+            if [[ "$release_draft" != true ]]; then
+              echo "Release $RELEASE_TAG is already published; refusing to replace it" >&2
+              exit 1
+            fi
+            gh release upload "$RELEASE_TAG" release-assets/* --clobber
+          else
+            prerelease=()
+            if [[ "$RELEASE_TAG" == *-* ]]; then prerelease=(--prerelease); fi
+            gh release create "$RELEASE_TAG" release-assets/* --title "Pelita $RELEASE_TAG" --draft --generate-notes "${prerelease[@]}"
+          fi
+          gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name' | python3 scripts/release.py verify-upload --tag "$RELEASE_TAG"
+          gh release edit "$RELEASE_TAG" --draft=false

@@ -1,6 +1,6 @@
 {
   "productName": "Pelita",
-  "version": "0.1.0",
+  "version": "0.1.0-alpha.1",
   "identifier": "org.pelita.desktop",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -27,6 +27,11 @@
   },
   "bundle": {
     "active": true,
+    "windows": {
+      "webviewInstallMode": {
+        "type": "offlineInstaller"
+      }
+    },
     "icon": [
       "icons/icon.png",
       "icons/icon.ico",
