@@ -10,7 +10,7 @@ Pelita is an independent project. Pelita source is available under the [MIT lice
 | --- | --- |
 | Product | [Vision](docs/product/vision.md), [requirements](docs/product/requirements.md), [MVP scope](docs/product/mvp-scope.md), [operator workflows](docs/product/user-workflows.md) |
 | Architecture | [System overview](docs/architecture/system-overview.md), [stack evaluation](docs/architecture/tech-stack.md), [projection](docs/architecture/projection-engine.md), [media and import](docs/architecture/media-engine.md), [data](docs/architecture/database-design.md), [extensions](docs/architecture/extension-system.md) |
-| Development | [Milestones](docs/development/milestones.md), [testing](docs/development/testing-strategy.md), [setup](docs/development/development-setup.md), [Phase 0 evidence](docs/development/phase-0.md), [Phase 1 pilot](docs/development/phase-1.md) |
+| Development | [Milestones](docs/development/milestones.md), [testing](docs/development/testing-strategy.md), [setup](docs/development/development-setup.md), [CI and releases](docs/development/releases.md), [Phase 0 evidence](docs/development/phase-0.md), [Phase 1 pilot](docs/development/phase-1.md) |
 | Licensing | [Source license](docs/legal/licensing.md), [content permissions](docs/legal/content-permissions.md) |
 | Decisions | [ADR 0001 · Desktop framework](docs/decisions/0001-desktop-framework.md) |
 
