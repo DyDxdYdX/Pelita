@@ -57,12 +57,12 @@ jobs:
           - platform: macos-aarch64
             runner: macos-15
             target: aarch64-apple-darwin
-            bundles: dmg
+            bundles: app
             bundle_root: app/src-tauri/target/aarch64-apple-darwin/release/bundle
           - platform: macos-x86_64
             runner: macos-15-intel
             target: x86_64-apple-darwin
-            bundles: dmg
+            bundles: app
             bundle_root: app/src-tauri/target/x86_64-apple-darwin/release/bundle
           - platform: linux-x86_64
             runner: ubuntu-22.04
@@ -106,6 +106,25 @@ jobs:
           projectPath: app
           tauriScript: tauri
           args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
+      - name: Bundle macOS DMG
+        if: startsWith(matrix.platform, 'macos-')
+        working-directory: app
+        shell: bash
+        env:
+          APPLE_SIGNING_IDENTITY: '-'
+          TARGET: ${{ matrix.target }}
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            if tauri bundle --target "$TARGET" --bundles dmg; then
+              exit 0
+            fi
+            if [[ "$attempt" == 3 ]]; then
+              echo "DMG bundling failed after three attempts" >&2
+              exit 1
+            fi
+            sleep "$((attempt * 20))"
+          done
       - name: Stage and validate installers
         env:
           RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', inputs.version) || github.ref_name }}
