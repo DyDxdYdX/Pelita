@@ -4,12 +4,22 @@ on:
   push:
     tags: ['v*']
   workflow_dispatch:
+    inputs:
+      version:
+        description: Application version without the v prefix
+        required: true
+        type: string
+      publish:
+        description: Publish release and create its tag after all builds pass
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: read
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-${{ github.event_name == 'workflow_dispatch' && format('v{0}', inputs.version) || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
@@ -17,10 +27,16 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Restrict manual publishing to main
+        if: github.event_name == 'workflow_dispatch' && inputs.publish
+        run: test "$GITHUB_REF" = refs/heads/main
       - name: Check tag and metadata versions
         env:
-          RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
-        run: python3 scripts/release.py check-version ${RELEASE_TAG:+--tag "$RELEASE_TAG"}
+          RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', inputs.version) || github.ref_name }}
+        run: python3 scripts/release.py check-version --tag "$RELEASE_TAG"
 
   checks:
     uses: ./.github/workflows/ci.yml
@@ -92,11 +108,11 @@ jobs:
           args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
       - name: Stage and validate installers
         env:
-          RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+          RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', inputs.version) || github.ref_name }}
           PLATFORM: ${{ matrix.platform }}
           BUNDLE_ROOT: ${{ matrix.bundle_root }}
         shell: bash
-        run: python scripts/release.py stage ${RELEASE_TAG:+--tag "$RELEASE_TAG"} --platform "$PLATFORM" --source "$BUNDLE_ROOT" --directory release-assets
+        run: python scripts/release.py stage --tag "$RELEASE_TAG" --platform "$PLATFORM" --source "$BUNDLE_ROOT" --directory release-assets
       - uses: actions/upload-artifact@v4
         with:
           name: installer-${{ matrix.platform }}
@@ -105,13 +121,16 @@ jobs:
           retention-days: 14
 
   publish:
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' || inputs.publish
     needs: [version, checks, build]
     runs-on: ubuntu-22.04
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - uses: actions/download-artifact@v4
         with:
           pattern: installer-*
@@ -119,15 +138,26 @@ jobs:
           merge-multiple: true
       - name: Verify complete release
         env:
-          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', inputs.version) || github.ref_name }}
         run: python3 scripts/release.py verify --tag "$RELEASE_TAG" --directory release-assets
       - name: Create draft, verify uploads, and publish
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', inputs.version) || github.ref_name }}
         shell: bash
         run: |
           set -euo pipefail
+          tag_options=(--verify-tag)
+          if [[ "$GITHUB_EVENT_NAME" == workflow_dispatch ]]; then
+            tag_options=(--target "$GITHUB_SHA")
+            if git ls-remote --exit-code --tags origin "refs/tags/$RELEASE_TAG" >/dev/null; then
+              git fetch --no-tags origin "refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
+              if [[ "$(git rev-parse "$RELEASE_TAG^{commit}")" != "$GITHUB_SHA" ]]; then
+                echo "Tag $RELEASE_TAG points to a different commit; choose a new version" >&2
+                exit 1
+              fi
+            fi
+          fi
           if release_draft=$(gh release view "$RELEASE_TAG" --json isDraft --jq '.isDraft' 2>/dev/null); then
             if [[ "$release_draft" != true ]]; then
               echo "Release $RELEASE_TAG is already published; refusing to replace it" >&2
@@ -137,7 +167,7 @@ jobs:
           else
             prerelease=()
             if [[ "$RELEASE_TAG" == *-* ]]; then prerelease=(--prerelease); fi
-            gh release create "$RELEASE_TAG" release-assets/* --title "Pelita $RELEASE_TAG" --draft --generate-notes "${prerelease[@]}"
+            gh release create "$RELEASE_TAG" release-assets/* --title "Pelita $RELEASE_TAG" --draft --generate-notes "${prerelease[@]}" "${tag_options[@]}"
           fi
           gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name' | python3 scripts/release.py verify-upload --tag "$RELEASE_TAG"
           gh release edit "$RELEASE_TAG" --draft=false

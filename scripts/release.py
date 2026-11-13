@@ -1,4 +1,4 @@
-"""Validate release versions and stage/verify Tauri installers."""
+"""Prepare release metadata and validate/stage Tauri installers."""
 
 import argparse
 import json
@@ -50,6 +50,55 @@ def version():
     return found
 
 
+def prepare(new_version):
+    if not SEMVER.fullmatch(new_version):
+        fail(f"Invalid release version: {new_version}")
+    old_version = version()
+    if new_version == old_version:
+        print(f"Already prepared v{new_version}")
+        return
+
+    package_path = ROOT / "app/package.json"
+    lock_path = ROOT / "app/package-lock.json"
+    config_path = ROOT / "app/src-tauri/tauri.conf.json"
+    cargo_path = ROOT / "app/src-tauri/Cargo.toml"
+    cargo_lock_path = ROOT / "app/src-tauri/Cargo.lock"
+
+    package = json.loads(package_path.read_text())
+    package_lock = json.loads(lock_path.read_text())
+    config = json.loads(config_path.read_text())
+    package["version"] = new_version
+    package_lock["version"] = new_version
+    package_lock["packages"][""]["version"] = new_version
+    config["version"] = new_version
+
+    cargo, cargo_count = re.subn(
+        rf'(?m)^(version = "){re.escape(old_version)}(")$',
+        rf'\g<1>{new_version}\g<2>',
+        cargo_path.read_text(),
+    )
+    lock_prefix = '[[package]]\nname = "pelita"\nversion = "'
+    cargo_lock, lock_count = re.subn(
+        rf'(?m)^({re.escape(lock_prefix)}){re.escape(old_version)}(")$',
+        rf'\g<1>{new_version}\g<2>',
+        cargo_lock_path.read_text(),
+    )
+    if cargo_count != 1 or lock_count != 1:
+        fail(f"Could not identify unique Cargo version entries (manifest={cargo_count}, lock={lock_count})")
+
+    for path, content in (
+        (package_path, json.dumps(package, indent=2) + "\n"),
+        (lock_path, json.dumps(package_lock, indent=2) + "\n"),
+        (config_path, json.dumps(config, indent=2) + "\n"),
+        (cargo_path, cargo),
+        (cargo_lock_path, cargo_lock),
+    ):
+        path.write_text(content)
+    if version() != new_version:
+        fail("Prepared versions did not validate")
+    print(f"Prepared v{new_version} in npm, Cargo, and Tauri metadata")
+
+
 def expected_names(tag):
     return {f"Pelita_{tag}-{platform}{extension}" for platform, (_, extension) in FORMATS.items()}
 
@@ -86,12 +135,18 @@ def verify(tag, directory, names=None):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("command", choices=("check-version", "stage", "verify", "verify-upload"))
+    parser.add_argument("command", choices=("prepare", "check-version", "stage", "verify", "verify-upload"))
+    parser.add_argument("--version")
     parser.add_argument("--tag")
     parser.add_argument("--platform")
     parser.add_argument("--source", type=Path)
     parser.add_argument("--directory", type=Path)
     args = parser.parse_args()
+    if args.command == "prepare":
+        if not args.version:
+            fail("prepare requires --version")
+        prepare(args.version)
+        return
     current = version()
     tag = args.tag or f"v{current}"
     if tag != f"v{current}":
