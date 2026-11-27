@@ -4,9 +4,13 @@ import { contentDetail, contentIcon, Dialog, Icon, IconButton, SlideNavigator, S
 import { useAudio } from './audio';
 import { audioTracks, moveTrack } from './audio-queue';
 import { decodeMedia, importFiles } from './import';
+import { processPresentationBatch, type Selection } from './presentation-batch';
 import {
-  accompaniment, assetUrl, delay, describe, invoke, newId, type Asset, type Content, type DisplayList,
-  type Intent, type Item, type Kind, type Library, type Missing, type Playlist, type SharedIntent, type Slide, type Status,
+  preparePresentation, PresentationSettings, providerLabel, RegeneratePresentation, type Progress,
+} from './presentations';
+import {
+  accompaniment, assetUrl, channel, delay, describe, invoke, newId, type Asset, type Content, type DisplayList,
+  type Intent, type Item, type Kind, type Library, type Missing, type Playlist, type Provider, type SharedIntent, type Slide, type Status,
 } from './model';
 import './projection.css';
 import './style.css';
@@ -55,13 +59,17 @@ function App() {
   const [status, setStatus] = useState(emptyStatus);
   const [screens, setScreens] = useState(noDisplays);
   const [displayIndex, setDisplayIndex] = useState<number | null>(null);
-  const [busy, setBusy] = useState('');
+  const [normalBusy, setBusy] = useState('');
+  const [presentationProgress, setPresentationProgress] = useState<Progress | null>(null);
+  const [failedPresentations, setFailedPresentations] = useState<{ source: Selection; message: string }[]>([]);
+  const [regenerateTarget, setRegenerateTarget] = useState<Item | null>(null);
+  const busy = presentationProgress?.message || normalBusy;
   const [notice, setNotice] = useState('');
   const [problem, setProblem] = useState('');
   const [missing, setMissing] = useState<Missing[] | null>(null);
   const [editor, setEditor] = useState<Editor | null>(null);
   const [playlistEditor, setPlaylistEditor] = useState<PlaylistEditor | null>(null);
-  const [dialog, setDialog] = useState<'projector' | 'shared' | 'shortcuts' | 'remove' | null>(null);
+  const [dialog, setDialog] = useState<'projector' | 'shared' | 'shortcuts' | 'remove' | 'settings' | null>(null);
   const [panel, setPanel] = useState<'service' | 'audio'>('service');
   const [selectedTrack, setSelectedTrack] = useState<string | null>(null);
   const [removeTarget, setRemoveTarget] = useState<Item | null>(null);
@@ -72,6 +80,8 @@ function App() {
   const latestStatus = useRef(emptyStatus);
   const operation = useRef(false);
   const stopImport = useRef<AbortController | null>(null);
+  const presentationAbort = useRef<AbortController | null>(null);
+  const receiveDrop = useRef<(sources: Selection[]) => void>(() => {});
   const fileInput = useRef<HTMLInputElement>(null);
   const issuesPanel = useRef<HTMLElement>(null);
   const fileIntent = useRef<FileIntent>({ type: 'add' });
@@ -88,7 +98,8 @@ function App() {
   const trackIndex = tracks.findIndex(candidate => candidate.id === track?.id);
   const testing = audio.source?.kind === 'test';
   const previewAudio = accompaniment(item);
-  const hasModal = Boolean(editor || playlistEditor || dialog);
+  const presentation = item?.content.kind === 'slides' ? item.content.presentation : undefined;
+  const hasModal = Boolean(editor || playlistEditor || dialog || regenerateTarget);
 
   useEffect(() => {
     if (missing?.length) issuesPanel.current?.scrollIntoView({ block: 'nearest' });
@@ -99,7 +110,7 @@ function App() {
     setNotice('');
   }
 
-  async function run(label: string, task: () => Promise<void>) {
+  async function run(label: string, task: () => Promise<unknown>) {
     if (operation.current) return;
     operation.current = true;
     clearFeedback();
@@ -138,6 +149,10 @@ function App() {
       setSelected(next.playlists.find(list => list.id === next.selected)?.items[0]?.id ?? null);
     }).catch(error => setProblem(describe(error)));
     void refreshDisplays().catch(error => setProblem(describe(error)));
+    if (window.__TAURI__) {
+      const drops = channel<Selection[]>(sources => receiveDrop.current(sources));
+      void invoke('presentation_drops', { drops }).catch(error => setProblem(describe(error)));
+    }
     let cancelled = false;
     let timer: number;
     async function poll() {
@@ -166,6 +181,7 @@ function App() {
     setLibrary(saved);
     setMissing(null);
     if (nextSelection !== undefined) choose(nextSelection);
+    return saved;
   }
 
   function withItems(items: Item[]): Library {
@@ -178,7 +194,7 @@ function App() {
   }
 
   function openFiles(intent: FileIntent) {
-    if (operation.current) return;
+    if (operation.current || presentationAbort.current) return;
     const input = fileInput.current!;
     fileIntent.current = intent;
     input.accept = intent.type === 'attach' || intent.type === 'audio' ? '.mp3'
@@ -217,6 +233,89 @@ function App() {
       } finally {
         stopImport.current = null;
       }
+    });
+  }
+
+  async function withPresentationJob(task: (signal: AbortSignal) => Promise<void>) {
+    if (operation.current || presentationAbort.current) return;
+    clearFeedback();
+    const abort = new AbortController();
+    presentationAbort.current = abort;
+    setPresentationProgress({ message: 'Preparing PowerPoint…', completed: null, total: null });
+    try {
+      await task(abort.signal);
+    } catch (error) {
+      if (abort.signal.aborted) setNotice('PowerPoint import cancelled.');
+      else setProblem(describe(error));
+    } finally {
+      presentationAbort.current = null;
+      setPresentationProgress(null);
+    }
+  }
+
+  function importPresentations(sources: Selection[]) {
+    if (!library || !playlist || !sources.length) return;
+    void withPresentationJob(async signal => {
+      setFailedPresentations([]);
+      let draft = library;
+      let entries = playlist.items;
+      const { added, reused, fallbacks, failures } = await processPresentationBatch(sources, signal, async source => {
+        const update = (progress: Progress) => setPresentationProgress({
+          ...progress, message: `${source.name} · ${progress.message}`,
+        });
+        update({ message: 'Reading file…', completed: null, total: null });
+        const prepared = await preparePresentation({ kind: 'source', id: source.id }, update, signal);
+        const addition: Item = { id: newId(), title: prepared.title, content: {
+          kind: 'slides', slides: prepared.slides, presentation: prepared.presentation, audio: null,
+        } };
+        const items = [...entries, addition];
+        const next = { ...draft, playlists: draft.playlists.map(list => list.id === playlist.id ? { ...list, items } : list) };
+        draft = await save(next, entries.length ? undefined : addition.id);
+        entries = items;
+        return prepared;
+      });
+      setFailedPresentations(failures);
+      const summary = [
+        signal.aborted ? 'PowerPoint import cancelled.' : '',
+        added ? `Added ${added} PowerPoint ${added === 1 ? 'presentation' : 'presentations'}.` : '',
+        reused ? `${reused} reused saved slides.` : '',
+        fallbacks ? `LibreOffice was used for ${fallbacks} after PowerPoint conversion failed.` : '',
+      ].filter(Boolean).join(' ');
+      if (failures.length) {
+        const count = `${failures.length} PowerPoint ${failures.length === 1 ? 'file failed' : 'files failed'}.`;
+        setProblem([summary, count, 'Open PowerPoint import results for details.'].filter(Boolean).join(' '));
+      } else {
+        setNotice(summary);
+      }
+    });
+  }
+
+  receiveDrop.current = sources => {
+    if (!hasModal && !busy) importPresentations(sources);
+  };
+
+  async function pickPresentations() {
+    if (operation.current || presentationAbort.current) return;
+    try {
+      importPresentations(await invoke<Selection[]>('pick_presentations'));
+    } catch (error) {
+      setProblem(describe(error));
+    }
+  }
+
+  function regeneratePresentation(provider: Provider | null) {
+    const target = regenerateTarget;
+    setRegenerateTarget(null);
+    if (target?.content.kind !== 'slides' || !playlist) return;
+    const content = target.content;
+    void withPresentationJob(async signal => {
+      const prepared = await preparePresentation({ kind: 'regenerate', item: target.id, provider }, setPresentationProgress, signal);
+      await save(withItems(playlist.items.map(entry => entry.id === target.id
+        ? { ...entry, content: { ...content, presentation: prepared.presentation, slides: prepared.slides } }
+        : entry)));
+      setNotice(prepared.fallback
+        ? 'Regenerated with LibreOffice after PowerPoint conversion failed.'
+        : `Regenerated with ${providerLabel[prepared.presentation.provider]}.`);
     });
   }
 
@@ -384,7 +483,7 @@ function App() {
       const slideArrow = (event.code === 'ArrowLeft' || event.code === 'ArrowRight') && inControl && inControl.closest('.thumbnail-strip');
       if (hasModal || event.altKey || event.metaKey || event.ctrlKey || event.repeat || (inControl && !slideArrow)) return;
       const keys: Record<string, Intent> = { ArrowRight: 'next', ArrowLeft: 'previous', KeyB: 'toggle_black', KeyR: 'restore', KeyC: 'clear' };
-      if (event.code === 'Enter' && status.ready && item && !busy) {
+      if (event.code === 'Enter' && status.ready && item && !normalBusy) {
         event.preventDefault();
         take(item, previewIndex);
       } else if (keys[event.code] && (status.ready || event.code === 'KeyC')) {
@@ -406,6 +505,7 @@ function App() {
       <div className="top-actions">
         <span className={`pill ${status.ready ? 'online' : ''}`}><span className="dot" />{status.ready ? 'Output connected' : status.opening ? 'Connecting' : 'Output offline'}</span>
         <button onClick={() => { if (!busy) clearFeedback(); setDialog('projector'); }}><Icon name="monitor" />Projector</button>
+        <IconButton icon="settings" label="Presentation conversion settings" disabled={!!busy} onClick={() => setDialog('settings')} />
         <IconButton icon="keyboard" label="Keyboard shortcuts" onClick={() => setDialog('shortcuts')} />
       </div>
     </header>
@@ -449,9 +549,10 @@ function App() {
               </li>)}
             </ol>
             {!playlist?.items.length && <div className="queue-empty"><Icon name="layers" size={29} /><p>{library ? 'Your playlist is empty' : 'Opening service library…'}</p></div>}
-            <div className="queue-actions">
+            <div className="queue-actions service-imports">
               <button disabled={!playlist || !!busy} onClick={() => { clearFeedback(); setEditor({ id: null, title: '', text: '', textDeck: true }); }}><Icon name="plus" />Text slides</button>
               <button disabled={!playlist || !!busy} onClick={() => openFiles({ type: 'add' })}><Icon name="file" />Import files</button>
+              <button disabled={!playlist || !!busy} onClick={() => void pickPresentations()}><Icon name="file" />Import PowerPoint</button>
             </div>
             <div className="item-actions">
               <IconButton icon="up" label="Move item up" disabled={!!busy || selectedIndex < 1} onClick={() => move(-1)} />
@@ -466,6 +567,7 @@ function App() {
                 const content = item.content;
                 if (content.kind === 'slides') void run('Removing accompaniment…', () => updateItem({ ...item, content: { ...content, audio: null } }));
               }} />}
+              {presentation && item && <button disabled={!!busy} onClick={() => setRegenerateTarget(item)}>Regenerate slides</button>}
               {previewAudio && <button disabled={!!busy || (!testing && (!!audio.source || audio.blocked))}
                 onClick={() => audio.test(previewAudio)}>{testing ? 'Stop test' : 'Test audio'}</button>}
             </div>}
@@ -503,7 +605,7 @@ function App() {
 
         <section className="projection-column" aria-label="Projection controls">
           <div className="panel control-strip">
-            <button className="primary take" disabled={!item || !status.ready || !!busy} onClick={() => take(item, previewIndex)}><Icon name="arrow" />Take</button>
+            <button className="primary take" disabled={!item || !status.ready || !!normalBusy} onClick={() => take(item, previewIndex)}><Icon name="arrow" />Take</button>
             <div className="output-buttons">
               <button className={status.live && status.black ? 'engaged' : ''} aria-pressed={Boolean(status.live && status.black)} disabled={!status.ready} onClick={() => act('black')}><Icon name="square" />Black</button>
               <button disabled={!status.live || !status.black} onClick={() => act('restore')}><Icon name="eye" />Restore</button>
@@ -561,11 +663,31 @@ function App() {
             {!!preview.length && <SlideNavigator slides={preview} previewIndex={previewIndex}
               liveIndex={liveIndex} choose={chooseSlide} />}
 
+            {presentation && <details className="panel presentation-details">
+              <summary>PPTX · Converted with {providerLabel[presentation.provider]}</summary>
+              {presentation.warnings.map(warning => <p key={warning}>{warning}</p>)}
+            </details>}
+
+            {!!failedPresentations.length && <details className="panel presentation-details" open>
+              <summary>PowerPoint import results</summary>
+              <ul>{failedPresentations.map(({ source, message }) =>
+                <li key={source.id}><strong>{source.name}</strong><p>{message}</p></li>)}</ul>
+              <button disabled={!!busy} onClick={() => importPresentations(failedPresentations.map(({ source }) => source))}>Retry failed files</button>
+            </details>}
+
             {!!missing?.length && <section ref={issuesPanel} className="panel issues" aria-label="Preflight issues">
               <div className="panel-heading"><h2><Icon name="warning" />Missing assets</h2><span className="count">{missing.length}</span></div>
               <ul>{missing.map(issue => <li key={`${issue.item}-${issue.asset.id}`}>
                 <div><strong>{playlist?.items.find(candidate => candidate.id === issue.item)?.title}</strong><small>{issue.asset.name}</small></div>
-                <button disabled={!!busy} onClick={() => openFiles({ type: 'relink', target: issue })}>Relink</button>
+                <button disabled={!!busy} onClick={() => {
+                  const target = playlist?.items.find(entry => entry.id === issue.item);
+                  if (target?.content.kind === 'slides' && target.content.presentation && issue.asset.kind === 'png') {
+                    setRegenerateTarget(target);
+                  } else {
+                    openFiles({ type: 'relink', target: issue });
+                  }
+                }}>{issue.asset.kind === 'png' && playlist?.items.some(entry => entry.id === issue.item
+                  && entry.content.kind === 'slides' && entry.content.presentation) ? 'Regenerate' : 'Relink'}</button>
                 <button disabled={!!busy} onClick={() => skip(issue.item)}>Skip</button>
               </li>)}</ul>
             </section>}
@@ -578,9 +700,12 @@ function App() {
 
     <footer className="statusbar">
       <span role={problem && !hasModal ? 'alert' : 'status'} className={problem && !hasModal ? 'problem' : ''}>
-        {(!hasModal && problem) || busy || notice || status.message || (library ? 'Local service workspace' : 'Opening Pelita…')}
+        {presentationProgress?.message || (!hasModal && problem) || normalBusy || notice || status.message || (library ? 'Local service workspace' : 'Opening Pelita…')}
       </span>
-      {busy && stopImport.current && <button onClick={() => stopImport.current?.abort()}>Cancel import</button>}
+      {presentationProgress?.total != null && <progress aria-label="PowerPoint slides prepared"
+        value={presentationProgress.completed ?? 0} max={presentationProgress.total} />}
+      {busy && (stopImport.current || presentationAbort.current) &&
+        <button onClick={() => (presentationAbort.current ?? stopImport.current)?.abort()}>Cancel import</button>}
     </footer>
 
     <input ref={fileInput} type="file" hidden onChange={filesChosen} />
@@ -598,6 +723,10 @@ function App() {
       <label>Service name<input required maxLength={160} value={playlistEditor.title} onChange={event => setPlaylistEditor({ ...playlistEditor, title: event.target.value })} /></label>
       {problem && <p role="alert" className="problem">{problem}</p>}
     </Dialog>}
+
+    {dialog === 'settings' && <PresentationSettings close={() => setDialog(null)} />}
+    {regenerateTarget && <RegeneratePresentation title={regenerateTarget.title}
+      close={() => setRegenerateTarget(null)} regenerate={regeneratePresentation} />}
 
     {dialog === 'projector' && <Dialog title="Projector" close={() => setDialog(null)}>
       <label className="visually-hidden" htmlFor="display">Extended display</label>

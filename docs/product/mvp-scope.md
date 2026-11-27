@@ -5,7 +5,7 @@ The documentation baseline precedes application work. **Phase 1 is the core proj
 | Required for Phase 1 | Deferred or conditional |
 | --- | --- |
 | Operator preview and live output, keyboard navigation, Black, Clear, projector recovery | Additional display layouts, richer themes, global shortcuts |
-| Static PDF and image decks, manual text slides, MP3 accompaniment, validated MP4 playback | Direct PPTX conversion only after a successful spike. Animated slides, transitions and embedded media playback deferred. |
+| Static PPTX, PDF and image decks, manual text slides, MP3 accompaniment, validated MP4 playback | Windows PowerPoint and cross-platform LibreOffice are optional PPTX converters. Animated slides, transitions and embedded media playback deferred. |
 | Local playlist editing, ordering, reuse, and preflight | Searchable song library and variant presets in Phase 2 |
 | Offline rehearsal and pilot packaging for validated targets | Local content packs in Phase 3, registry in Phase 4, public release in Phase 5 |
 

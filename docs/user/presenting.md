@@ -10,7 +10,7 @@ The **Preview** shows the selected playlist item privately. **Live output** show
 4. Use the **Slides** strip to jump within the selected live item. The gold **Live** label follows the slide as you use the strip, the **Live output** arrows, or the keyboard. Scroll the strip sideways to see more slides.
 5. Press **Take** when it is time to switch from Scripture slides to the sermon presentation or another item.
 
-To start a different item at a specific slide, select that item, choose its thumbnail in **Slides**, and then press **Take**. Preview remains private until Take. If you edit a live deck's slide content, its updated thumbnails stay private until you take that version.
+To start a different item at a specific slide, select that item, choose its thumbnail in **Slides**, and then press **Take**. Preview remains private until Take. If you edit or regenerate a live deck, its updated thumbnails stay private until you take that version.
 
 **Black** hides the current image temporarily. **Restore** reveals the current live slide. **Clear** removes the live item and stops its accompaniment. **Close output** in the **Projector** dialog closes the presentation window.
 

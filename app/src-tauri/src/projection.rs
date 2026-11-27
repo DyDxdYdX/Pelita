@@ -257,7 +257,7 @@ impl Session {
         };
         let matches = |asset: &Asset| asset.group == group && asset.id == id;
         if let Some(live) = &output.live {
-            if matches!(live.slide(), Some(Slide::Image { asset }) if matches(asset))
+            if matches!(live.slide(), Some(Slide::Image { asset, .. }) if matches(asset))
                 || matches!(&live.item.content, Content::Video { video } if matches(video))
             {
                 return true;
@@ -841,6 +841,7 @@ mod tests {
             id: Uuid::new_v4(),
             title: "Hymn".into(),
             content: Content::Slides {
+                presentation: None,
                 slides: vec![
                     Slide::Text {
                         text: "First".into(),
@@ -876,15 +877,33 @@ mod tests {
     fn take_and_jump_validate_slide_index_and_live_token() {
         let mut session = session();
         let last = asset(Kind::Png);
+        let first = Asset {
+            group: last.group,
+            ..asset(Kind::Png)
+        };
+        let thumb = Asset {
+            group: last.group,
+            ..asset(Kind::Webp)
+        };
+        let presentation = serde_json::from_value(serde_json::json!({
+            "id": last.group, "format": "pptx", "provider": "libreoffice", "warnings": []
+        }))
+        .unwrap();
         let item = Item {
             id: Uuid::new_v4(),
-            title: "Hymn".into(),
+            title: "Imported PowerPoint".into(),
             content: Content::Slides {
+                presentation: Some(presentation),
                 slides: vec![
-                    Slide::Text {
-                        text: "First".into(),
+                    Slide::Image {
+                        asset: first.clone(),
+                        thumbnail: Some(Asset {
+                            group: last.group,
+                            ..asset(Kind::Webp)
+                        }),
                     },
                     Slide::Image {
+                        thumbnail: Some(thumb.clone()),
                         asset: last.clone(),
                     },
                 ],
@@ -895,6 +914,8 @@ mod tests {
         assert!(session.commit_take(token, 2).is_err());
         session.commit_take(token, 1).unwrap();
         assert!(session.allows_media("projector-1", last.group, last.id));
+        assert!(!session.allows_media("projector-1", thumb.group, thumb.id));
+        assert!(!session.allows_media("projector-1", first.group, first.id));
 
         let output = session.output.as_mut().unwrap();
         output.apply(Intent::Black);
@@ -911,6 +932,7 @@ mod tests {
         assert_eq!(output.live.as_ref().unwrap().index, 0);
         assert!(output.black);
         assert!(!session.allows_media("projector-1", last.group, last.id));
+        assert!(session.allows_media("projector-1", first.group, first.id));
         assert_eq!(session.audio.unwrap().token, token);
     }
 

@@ -14,6 +14,7 @@ Church volunteers often juggle slides, music, videos, and a projector during one
 
 - Create, reorder, duplicate, and reuse service playlists for songs, Scripture, announcements, and sermon material.
 - Make text slides for lyrics or readings; add an MP3 accompaniment and advance the slides yourself while it plays.
+- Import PowerPoint presentations as navigable slides with PowerPoint on Windows or LibreOffice. Prepared presentations work offline without the converter installed.
 - Import PNG or JPEG images and static PDF pages as slides. Play local MP4 videos or MP3 audio.
 - Select an item in a private **Preview**, then press **Take** to put it on the projector. Move through live slides with buttons or keyboard shortcuts.
 - Use **Black**, **Restore**, and **Clear** to manage the audience display. Choose an extended projector display, or use the **Single / mirrored** presentation mode.
@@ -33,7 +34,7 @@ For installation and first-use steps, see the [Getting Started guide](docs/user/
 
 1. Install and open Pelita.
 2. Select **New service** and name your worship service, or use the existing service.
-3. Add **Text slides** and **Import files**, then put the playlist in service order.
+3. Add **Text slides**, **Import PowerPoint**, and **Import files**, then put the playlist in service order.
 4. Connect your projector, choose it under **Projector**, and select **Confirm display**. For a shared screen, use **Single / mirrored**.
 5. Select an item, check the private **Preview**, then press **Take** when you are ready to show it.
 

@@ -29,6 +29,7 @@ const paths = {
   trash: 'M4 6h16 M9 6V3h6v3 M6 6l1 15h10l1-15 M10 10v7 M14 10v7',
   square: 'M5 5h14v14H5z',
   eye: 'M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7Z M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z',
+  settings: 'M4 7h16 M4 12h16 M4 17h16 M8 4v6 M16 9v6 M11 14v6',
   keyboard: 'M2 5h20v14H2z M6 9h.01 M10 9h.01 M14 9h.01 M18 9h.01 M7 14h10',
 } as const;
 
@@ -56,7 +57,7 @@ export function contentIcon(content: Content): IconName {
 export function contentDetail(content: Content) {
   if (content.kind === 'video') return 'MP4 video';
   if (content.kind === 'audio') return 'MP3 audio';
-  return `${content.slides.length} ${content.slides.length === 1 ? 'slide' : 'slides'}${content.audio ? ' · MP3' : ''}`;
+  return `${content.presentation ? 'PPTX · ' : ''}${content.slides.length} ${content.slides.length === 1 ? 'slide' : 'slides'}${content.audio ? ' · MP3' : ''}`;
 }
 
 export const SlideView = memo(function SlideView({ slide, thumbnail = false }: { slide: Slide; thumbnail?: boolean }) {
@@ -66,7 +67,7 @@ export const SlideView = memo(function SlideView({ slide, thumbnail = false }: {
     if (text.current) return fitText(text.current);
   }, [words]);
   return slide.kind === 'image'
-    ? <img className="frame-image" src={assetUrl(slide.asset)} alt={thumbnail ? '' : slide.asset.name}
+    ? <img className="frame-image" src={assetUrl(thumbnail && slide.thumbnail ? slide.thumbnail : slide.asset)} alt={thumbnail ? '' : slide.asset.name}
       loading={thumbnail ? 'lazy' : undefined} decoding={thumbnail ? 'async' : undefined} />
     : <span ref={text} className="frame-text">{words}</span>;
 });

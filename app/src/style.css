@@ -286,3 +286,14 @@ kbd {
   .workspace-body { gap: 8px; padding-block: 8px; }
   .slide-navigator .panel-heading { min-height: 32px; padding-block: 4px; }
 }
+
+.service-imports { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.service-imports button:last-child { grid-column: 1 / -1; }
+.presentation-details { padding: 8px 12px; overflow-wrap: anywhere; font-size: 13px; }
+.presentation-details summary { cursor: pointer; }
+.presentation-details p { margin-block: 5px; }
+.presentation-details ul { padding-inline-start: 1.2em; }
+.converter-status { border-block-start: 1px solid var(--border); padding-block-start: 8px; overflow-wrap: anywhere; }
+.converter-status h3 { font-size: 15px; margin: 0 0 4px; }
+.statusbar progress { width: clamp(45px, 12vw, 120px); flex: none; accent-color: var(--accent); }
+.statusbar button { flex: none; }

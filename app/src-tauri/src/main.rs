@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod media;
+mod presentation;
 mod projection;
 mod store;
 
@@ -24,6 +25,7 @@ fn operator(window: &WebviewWindow) -> Outcome<()> {
 fn main() {
     tauri::Builder::default()
         .manage(Mutex::new(projection::Session::default()))
+        .manage(presentation::Jobs::default())
         .setup(|app| {
             let profile = app.path().app_data_dir()?;
             let profile = if cfg!(debug_assertions) {
@@ -44,6 +46,13 @@ fn main() {
             store::begin_import,
             store::write_import,
             store::finish_import,
+            presentation::pick_presentations,
+            presentation::presentation_drops,
+            presentation::cancel_presentation,
+            presentation::presentation_settings,
+            presentation::save_presentation_provider,
+            presentation::choose_libreoffice,
+            presentation::import_presentation,
             projection::displays,
             projection::confirm,
             projection::projector,
@@ -53,9 +62,27 @@ fn main() {
             projection::take,
             projection::action
         ])
+        .on_webview_event(|webview, event| {
+            if webview.label() == "main" {
+                if let tauri::WebviewEvent::DragDrop(tauri::DragDropEvent::Drop { paths, .. }) =
+                    event
+                {
+                    webview.state::<presentation::Jobs>().drop_files(paths);
+                }
+            }
+        })
         .on_window_event(|window, event| {
             if window.label() == "main" && matches!(event, tauri::WindowEvent::Destroyed) {
-                window.app_handle().exit(0);
+                let app = window.app_handle().clone();
+                if app.state::<presentation::Jobs>().cancel_active() {
+                    tauri::async_runtime::spawn_blocking(move || {
+                        // Let the converter terminate its private subprocess before Pelita exits.
+                        std::thread::sleep(std::time::Duration::from_millis(500));
+                        app.exit(0);
+                    });
+                } else {
+                    app.exit(0);
+                }
             }
         })
         .run(tauri::generate_context!())

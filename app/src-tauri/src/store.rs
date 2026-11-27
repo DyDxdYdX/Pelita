@@ -1,7 +1,7 @@
-use crate::{describe, operator, Outcome};
+use crate::{describe, operator, presentation, Outcome};
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     fs::{self, File, OpenOptions},
     io::Write,
     path::{Path, PathBuf},
@@ -18,6 +18,7 @@ const MAX_CHUNK: usize = 1024 * 1024;
 #[serde(rename_all = "lowercase")]
 pub enum Kind {
     Png,
+    Webp,
     Jpeg,
     Mp3,
     Mp4,
@@ -27,6 +28,7 @@ impl Kind {
     pub fn extension(self) -> &'static str {
         match self {
             Self::Png => "png",
+            Self::Webp => "webp",
             Self::Jpeg => "jpeg",
             Self::Mp3 => "mp3",
             Self::Mp4 => "mp4",
@@ -36,6 +38,7 @@ impl Kind {
     pub fn mime(self) -> &'static str {
         match self {
             Self::Png => "image/png",
+            Self::Webp => "image/webp",
             Self::Jpeg => "image/jpeg",
             Self::Mp3 => "audio/mpeg",
             Self::Mp4 => "video/mp4",
@@ -43,7 +46,7 @@ impl Kind {
     }
 
     pub fn from_extension(value: &str) -> Option<Self> {
-        [Self::Png, Self::Jpeg, Self::Mp3, Self::Mp4]
+        [Self::Png, Self::Webp, Self::Jpeg, Self::Mp3, Self::Mp4]
             .into_iter()
             .find(|kind| kind.extension() == value)
     }
@@ -51,6 +54,7 @@ impl Kind {
     fn matches_header(self, bytes: &[u8]) -> bool {
         match self {
             Self::Png => bytes.starts_with(b"\x89PNG\r\n\x1a\n"),
+            Self::Webp => bytes.starts_with(b"RIFF") && &bytes[8..12] == b"WEBP",
             Self::Jpeg => bytes.starts_with(b"\xff\xd8\xff"),
             Self::Mp3 => bytes.starts_with(b"ID3") || (bytes[0] == 0xff && bytes[1] & 0xe0 == 0xe0),
             Self::Mp4 => &bytes[4..8] == b"ftyp",
@@ -70,8 +74,14 @@ pub struct Asset {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(tag = "kind", rename_all = "lowercase")]
 pub enum Slide {
-    Text { text: String },
-    Image { asset: Asset },
+    Text {
+        text: String,
+    },
+    Image {
+        asset: Asset,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        thumbnail: Option<Asset>,
+    },
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -80,6 +90,8 @@ pub enum Content {
     Slides {
         slides: Vec<Slide>,
         audio: Option<Asset>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        presentation: Option<presentation::Reference>,
     },
     Video {
         video: Asset,
@@ -97,12 +109,19 @@ pub struct Item {
 }
 
 impl Item {
+    pub fn presentation(&self) -> Option<&presentation::Reference> {
+        match &self.content {
+            Content::Slides { presentation, .. } => presentation.as_ref(),
+            _ => None,
+        }
+    }
+
     pub fn assets(&self) -> Vec<&Asset> {
         match &self.content {
-            Content::Slides { slides, audio } => slides
+            Content::Slides { slides, audio, .. } => slides
                 .iter()
                 .filter_map(|slide| match slide {
-                    Slide::Image { asset } => Some(asset),
+                    Slide::Image { asset, .. } => Some(asset),
                     Slide::Text { .. } => None,
                 })
                 .chain(audio)
@@ -114,13 +133,31 @@ impl Item {
 
     fn valid(&self) -> bool {
         let content_valid = match &self.content {
-            Content::Slides { slides, audio } => {
+            Content::Slides {
+                slides,
+                audio,
+                presentation,
+            } => {
                 (1..=100).contains(&slides.len())
                     && slides.iter().all(|slide| match slide {
                         Slide::Text { text } => {
-                            !text.trim().is_empty() && text.chars().count() <= 360
+                            presentation.is_none()
+                                && !text.trim().is_empty()
+                                && text.chars().count() <= 360
                         }
-                        Slide::Image { asset } => matches!(asset.kind, Kind::Png | Kind::Jpeg),
+                        Slide::Image { asset, thumbnail } => {
+                            matches!(asset.kind, Kind::Png | Kind::Jpeg)
+                                && presentation.as_ref().is_none_or(|source| {
+                                    source.id == asset.group
+                                        && asset.kind == Kind::Png
+                                        && thumbnail.is_some()
+                                })
+                                && thumbnail.as_ref().is_none_or(|thumb| {
+                                    thumb.kind == Kind::Webp
+                                        && thumb.group == asset.group
+                                        && (12..=1024 * 1024).contains(&thumb.size)
+                                })
+                        }
                     })
                     && audio.as_ref().is_none_or(|asset| asset.kind == Kind::Mp3)
             }
@@ -230,11 +267,13 @@ impl Store {
         };
         library.validate()?;
         let staging = root.join("staging");
+        // A cancelled Office call may still hold an old staged copy open on Windows.
         if staging.exists() {
-            fs::remove_dir_all(&staging).map_err(describe)?;
+            let _ = fs::remove_dir_all(&staging);
         }
-        fs::create_dir(&staging).map_err(describe)?;
+        fs::create_dir_all(&staging).map_err(describe)?;
         fs::create_dir_all(root.join("media")).map_err(describe)?;
+        fs::create_dir_all(root.join("presentations")).map_err(describe)?;
         Ok(Self {
             root,
             library: Mutex::new(library),
@@ -279,28 +318,40 @@ impl Store {
     }
 
     pub fn asset(&self, asset: &Asset) -> Outcome<PathBuf> {
-        let path = media_path(&self.root, asset.group, asset.id, asset.kind)?;
-        use std::io::Read;
-        let mut file = File::open(&path).map_err(describe)?;
-        let mut header = [0; 12];
-        if file.metadata().map_err(describe)?.len() != asset.size
-            || file.read_exact(&mut header).is_err()
-            || !asset.kind.matches_header(&header)
-        {
-            return Err(format!("{} has changed. Relink this asset.", asset.name));
-        }
-        Ok(path)
+        checked_asset(&self.root, asset)
     }
 }
 
-pub fn media_path(root: &Path, group: Uuid, id: Uuid, kind: Kind) -> Outcome<PathBuf> {
-    let base = root.join("media");
-    let path = base.join(group.to_string()).join(filename(id, kind));
-    let canonical = path.canonicalize().map_err(describe)?;
-    if canonical != path || !canonical.is_file() {
-        return Err("Media file unavailable.".into());
+fn checked_asset(root: &Path, asset: &Asset) -> Outcome<PathBuf> {
+    let path = media_path(root, asset.group, asset.id, asset.kind)?;
+    use std::io::Read;
+    let mut file = File::open(&path).map_err(describe)?;
+    let mut header = [0; 12];
+    if file.metadata().map_err(describe)?.len() != asset.size
+        || file.read_exact(&mut header).is_err()
+        || !asset.kind.matches_header(&header)
+    {
+        return Err(format!(
+            "{} has changed. Relink or regenerate this asset.",
+            asset.name
+        ));
     }
-    Ok(canonical)
+    Ok(path)
+}
+
+pub fn media_path(root: &Path, group: Uuid, id: Uuid, kind: Kind) -> Outcome<PathBuf> {
+    let media = root
+        .join("media")
+        .join(group.to_string())
+        .join(filename(id, kind));
+    [Some(media), presentation::asset_path(root, group, id, kind)]
+        .into_iter()
+        .flatten()
+        .find(|path| {
+            path.canonicalize()
+                .is_ok_and(|canonical| canonical == *path && canonical.is_file())
+        })
+        .ok_or_else(|| "Media file unavailable.".into())
 }
 
 fn filename(id: Uuid, kind: Kind) -> String {
@@ -336,26 +387,42 @@ pub async fn preflight(
     playlist: Uuid,
 ) -> Outcome<Vec<Missing>> {
     operator(&window)?;
-    let current = store.library.lock().map_err(describe)?;
-    let playlist = current
+    let playlist = store
+        .library
+        .lock()
+        .map_err(describe)?
         .playlists
         .iter()
         .find(|candidate| candidate.id == playlist)
+        .cloned()
         .ok_or("Service no longer exists.")?;
-    Ok(playlist
-        .items
-        .iter()
-        .flat_map(|item| {
-            item.assets()
-                .into_iter()
-                .filter(|asset| store.asset(asset).is_err())
-                .map(|asset| Missing {
-                    item: item.id,
-                    asset: asset.clone(),
-                })
-                .collect::<Vec<_>>()
-        })
-        .collect())
+    let root = store.root.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut damage = HashMap::new();
+        let mut missing = Vec::new();
+        for item in &playlist.items {
+            let damaged = item.presentation().map(|reference| {
+                damage
+                    .entry(reference.id)
+                    .or_insert_with(|| presentation::damaged_slides(&root, reference))
+            });
+            for asset in item.assets() {
+                if damaged
+                    .as_ref()
+                    .is_some_and(|slides| slides.contains(&asset.id))
+                    || checked_asset(&root, asset).is_err()
+                {
+                    missing.push(Missing {
+                        item: item.id,
+                        asset: asset.clone(),
+                    });
+                }
+            }
+        }
+        missing
+    })
+    .await
+    .map_err(describe)
 }
 
 #[derive(Deserialize)]
@@ -387,7 +454,9 @@ pub async fn begin_import(
     operator(&window)?;
     if !(1..=100).contains(&sources.len())
         || sources.iter().any(|source| {
-            !(12..=MAX_FILE).contains(&source.size) || !valid_label(&source.name, 300)
+            source.kind == Kind::Webp
+                || !(12..=MAX_FILE).contains(&source.size)
+                || !valid_label(&source.name, 300)
         })
         || sources.iter().map(|source| source.size).sum::<u64>() > MAX_IMPORT
     {
@@ -552,6 +621,7 @@ mod tests {
                     text: "Selamat Sabat".into(),
                 }],
                 audio: None,
+                presentation: None,
             },
         });
         let saved = store.save(draft).unwrap();

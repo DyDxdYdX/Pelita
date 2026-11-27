@@ -10,7 +10,7 @@ Reconnect it, press **Refresh displays**, select the correct display, and press 
 
 ## A slide, PDF, or video will not open
 
-Check that it is a supported file in [Media support](media-support.md). Export PowerPoint to PDF before import. Try a smaller PDF or a known-good MP4 on the worship computer. Keep a text slide or static PDF ready for the essential message. Do not wait until the service to discover that a video cannot play.
+Check that it is a supported file in [Media support](media-support.md). For PPTX, open **Presentation conversion settings**, check that a converter is available, then **Rescan** after installing it. If some files in a batch fail, open **PowerPoint import results** and retry after resolving the error. Use **Regenerate slides** to replace missing slides or try another provider. If PowerPoint is blocked by an Office prompt or the deck renders incorrectly, export a static PDF from a trusted copy and import that PDF. Try a smaller PDF or a known-good MP4 on the worship computer. Keep a text slide or static PDF ready for the essential message. Do not wait until the service to discover that a video cannot play.
 
 ## Audio is silent or interrupted
 
