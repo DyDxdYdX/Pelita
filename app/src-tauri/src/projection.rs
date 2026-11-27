@@ -82,6 +82,7 @@ pub enum Mode {
 pub enum Intent {
     Next,
     Previous,
+    Jump { token: Uuid, index: usize },
     Black,
     Restore,
     ToggleBlack,
@@ -136,6 +137,14 @@ impl Output {
                     }
                 }
             }
+            Intent::Jump { token, index } => {
+                if let Some(live) = self.live.as_mut().filter(|live| live.token == token) {
+                    if matches!(&live.item.content, Content::Slides { slides, .. } if index < slides.len())
+                    {
+                        live.index = index;
+                    }
+                }
+            }
             _ => {}
         }
     }
@@ -187,17 +196,22 @@ impl Live {
 }
 
 impl Session {
-    fn commit_take(&mut self, token: Uuid) -> Outcome<()> {
+    fn commit_take(&mut self, token: Uuid, index: usize) -> Outcome<()> {
         let revision = self.revision + 1;
         let output = self
             .output
             .as_mut()
             .filter(|out| out.ready)
             .ok_or("Projection is unavailable.")?;
-        if !output.pending.as_ref().is_some_and(|candidate| {
-            candidate.token == token && candidate.ready && !candidate.failed
-        }) {
-            return Err("Prepared content is no longer ready.".into());
+        let candidate = output
+            .pending
+            .as_ref()
+            .filter(|candidate| candidate.token == token && candidate.ready && !candidate.failed)
+            .ok_or("Prepared content is no longer ready.")?;
+        if index != 0
+            && !matches!(&candidate.item.content, Content::Slides { slides, .. } if index < slides.len())
+        {
+            return Err("The selected slide is unavailable.".into());
         }
         let candidate = output.pending.take().ok_or("No prepared item.")?;
         if output.live.as_ref().and_then(Live::video).is_some() {
@@ -216,11 +230,7 @@ impl Session {
             token,
         });
         output.black = false;
-        output.live = Some(Live {
-            item,
-            index: 0,
-            token,
-        });
+        output.live = Some(Live { item, index, token });
         let preserve_audio = !had_live
             && self
                 .audio
@@ -247,7 +257,7 @@ impl Session {
         };
         let matches = |asset: &Asset| asset.group == group && asset.id == id;
         if let Some(live) = &output.live {
-            if matches!(live.slide(), Some(Slide::Image { asset }) if matches(asset))
+            if matches!(live.slide(), Some(Slide::Image { asset, .. }) if matches(asset))
                 || matches!(&live.item.content, Content::Video { video } if matches(video))
             {
                 return true;
@@ -575,6 +585,7 @@ pub async fn projector(
 #[derive(Serialize)]
 pub struct LiveStatus {
     id: Uuid,
+    token: Uuid,
     title: String,
     kind: &'static str,
     index: usize,
@@ -584,6 +595,7 @@ pub struct LiveStatus {
 
 #[derive(Serialize)]
 pub struct Status {
+    revision: u64,
     message: String,
     ready: bool,
     opening: bool,
@@ -616,6 +628,7 @@ pub async fn status(window: WebviewWindow, app: AppHandle, state: Shared<'_>) ->
         };
         LiveStatus {
             id: live.item.id,
+            token: live.token,
             title: live.item.title.clone(),
             kind,
             index: live.index,
@@ -624,6 +637,7 @@ pub async fn status(window: WebviewWindow, app: AppHandle, state: Shared<'_>) ->
         }
     });
     Ok(Status {
+        revision: session.revision,
         message: session.message.clone(),
         ready: output.is_some_and(|output| output.ready),
         opening: output.is_some_and(|output| !output.ready && !output.suspended),
@@ -633,8 +647,10 @@ pub async fn status(window: WebviewWindow, app: AppHandle, state: Shared<'_>) ->
         black: output.is_none_or(|output| output.black),
         live,
         audio: session.audio.clone(),
-        audio_allowed: session.audio.is_some()
-            && output.is_none_or(|output| output.seen >= output.video_stopped_at),
+        audio_allowed: output.is_none_or(|output| {
+            output.seen >= output.video_stopped_at
+                && output.live.as_ref().and_then(Live::video).is_none()
+        }),
         candidate: output
             .and_then(|output| output.pending.as_ref())
             .map(|candidate| (candidate.token, candidate.ready, candidate.failed)),
@@ -695,11 +711,13 @@ pub async fn take(
     app: AppHandle,
     state: Shared<'_>,
     token: Uuid,
-) -> Outcome<()> {
+    index: usize,
+) -> Outcome<u64> {
     operator(&window)?;
     let mut session = state.lock().map_err(describe)?;
     check(&app, &mut session);
-    session.commit_take(token)
+    session.commit_take(token, index)?;
+    Ok(session.revision)
 }
 
 #[tauri::command]
@@ -755,6 +773,7 @@ pub async fn action(
         Intent::Next | Intent::Previous | Intent::Black | Intent::Restore | Intent::ToggleBlack => {
             output.apply(intent)
         }
+        Intent::Jump { .. } if operator => output.apply(intent),
         _ => return Ok(()),
     }
     session.revision += 1;
@@ -822,6 +841,7 @@ mod tests {
             id: Uuid::new_v4(),
             title: "Hymn".into(),
             content: Content::Slides {
+                presentation: None,
                 slides: vec![
                     Slide::Text {
                         text: "First".into(),
@@ -834,7 +854,7 @@ mod tests {
             },
         };
         let token = stage(&mut session, item.clone(), true);
-        session.commit_take(token).unwrap();
+        session.commit_take(token, 0).unwrap();
         let output = session.output.as_mut().unwrap();
         output.apply(Intent::Previous);
         assert_eq!(output.live.as_ref().unwrap().index, 0);
@@ -849,7 +869,70 @@ mod tests {
 
         output.live = None;
         let recovery = stage(&mut session, item, true);
-        session.commit_take(recovery).unwrap();
+        session.commit_take(recovery, 0).unwrap();
+        assert_eq!(session.audio.unwrap().token, token);
+    }
+
+    #[test]
+    fn take_and_jump_validate_slide_index_and_live_token() {
+        let mut session = session();
+        let last = asset(Kind::Png);
+        let first = Asset {
+            group: last.group,
+            ..asset(Kind::Png)
+        };
+        let thumb = Asset {
+            group: last.group,
+            ..asset(Kind::Webp)
+        };
+        let presentation = serde_json::from_value(serde_json::json!({
+            "id": last.group, "format": "pptx", "provider": "libreoffice", "warnings": []
+        }))
+        .unwrap();
+        let item = Item {
+            id: Uuid::new_v4(),
+            title: "Imported PowerPoint".into(),
+            content: Content::Slides {
+                presentation: Some(presentation),
+                slides: vec![
+                    Slide::Image {
+                        asset: first.clone(),
+                        thumbnail: Some(Asset {
+                            group: last.group,
+                            ..asset(Kind::Webp)
+                        }),
+                    },
+                    Slide::Image {
+                        thumbnail: Some(thumb.clone()),
+                        asset: last.clone(),
+                    },
+                ],
+                audio: Some(asset(Kind::Mp3)),
+            },
+        };
+        let token = stage(&mut session, item, true);
+        assert!(session.commit_take(token, 2).is_err());
+        session.commit_take(token, 1).unwrap();
+        assert!(session.allows_media("projector-1", last.group, last.id));
+        assert!(!session.allows_media("projector-1", thumb.group, thumb.id));
+        assert!(!session.allows_media("projector-1", first.group, first.id));
+
+        let output = session.output.as_mut().unwrap();
+        output.apply(Intent::Black);
+        output.apply(Intent::Jump { token, index: 2 });
+        output.apply(Intent::Jump {
+            token: Uuid::new_v4(),
+            index: 0,
+        });
+        assert_eq!(output.live.as_ref().unwrap().index, 1);
+        let jump =
+            serde_json::from_value(serde_json::json!({ "jump": { "token": token, "index": 0 } }))
+                .unwrap();
+        output.apply(jump);
+        assert_eq!(output.live.as_ref().unwrap().index, 0);
+        assert!(output.black);
+        assert!(!session.allows_media("projector-1", last.group, last.id));
+        assert!(session.allows_media("projector-1", first.group, first.id));
         assert_eq!(session.audio.unwrap().token, token);
     }
 
@@ -864,7 +947,7 @@ mod tests {
             },
         };
         let music_token = stage(&mut session, music.clone(), true);
-        session.commit_take(music_token).unwrap();
+        session.commit_take(music_token, 0).unwrap();
 
         let video = asset(Kind::Mp4);
         let token = stage(
@@ -880,7 +963,7 @@ mod tests {
         );
         assert!(session.allows_media("projector-1", video.group, video.id));
         assert!(!session.allows_media("projector-0", video.group, video.id));
-        assert!(session.commit_take(token).is_err());
+        assert!(session.commit_take(token, 0).is_err());
         assert_eq!(session.audio.as_ref().unwrap().token, music_token);
         session
             .output
@@ -890,12 +973,12 @@ mod tests {
             .as_mut()
             .unwrap()
             .ready = true;
-        assert!(session.commit_take(music_token).is_err());
-        session.commit_take(token).unwrap();
+        assert!(session.commit_take(music_token, 0).is_err());
+        session.commit_take(token, 0).unwrap();
         assert!(session.audio.is_none());
 
         let recovery = stage(&mut session, music, true);
-        session.commit_take(recovery).unwrap();
+        session.commit_take(recovery, 0).unwrap();
         let output = session.output.unwrap();
         assert_eq!(output.video_stopped_at, session.revision);
         assert!(output.seen < output.video_stopped_at);

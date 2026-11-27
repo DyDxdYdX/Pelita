@@ -55,7 +55,7 @@ async function inspect(file: File, progress: Progress, signal: AbortSignal, only
   if (suffix === 'pdf' && !only) return rasterize(file, progress, signal);
   const kind = suffix === 'jpg' ? 'jpeg' : suffix;
   if (kind !== 'png' && kind !== 'jpeg' && kind !== 'mp3' && kind !== 'mp4') {
-    throw new Error('Choose PNG, JPEG, PDF, MP3 or MP4 files. Export PowerPoint as PDF first.');
+    throw new Error('Choose PNG, JPEG, PDF, MP3 or MP4 files. Use Import PowerPoint for .pptx files.');
   }
   if (only && only !== kind && !(only === 'jpeg' && kind === 'png') && !(only === 'png' && kind === 'jpeg')) {
     throw new Error(`Choose a replacement of the same media type as ${only.toUpperCase()}.`);

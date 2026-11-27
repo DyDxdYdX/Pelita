@@ -1,4 +1,4 @@
-export type Kind = 'png' | 'jpeg' | 'mp3' | 'mp4';
+export type Kind = 'png' | 'jpeg' | 'mp3' | 'mp4' | 'webp';
 
 export interface Asset {
   group: string;
@@ -8,9 +8,12 @@ export interface Asset {
   size: number;
 }
 
-export type Slide = { kind: 'text'; text: string } | { kind: 'image'; asset: Asset };
+export type Provider = 'powerpoint' | 'libreoffice';
+export interface Presentation { id: string; format: 'pptx'; provider: Provider; warnings: string[] }
+
+export type Slide = { kind: 'text'; text: string } | { kind: 'image'; asset: Asset; thumbnail?: Asset };
 export type Content =
-  | { kind: 'slides'; slides: Slide[]; audio: Asset | null }
+  | { kind: 'slides'; slides: Slide[]; audio: Asset | null; presentation?: Presentation }
   | { kind: 'audio'; audio: Asset }
   | { kind: 'video'; video: Asset };
 
@@ -33,6 +36,7 @@ export interface Frame {
 }
 export interface Live {
   id: string;
+  token: string;
   title: string;
   kind: Content['kind'];
   index: number;
@@ -41,9 +45,11 @@ export interface Live {
 }
 
 export type SharedIntent = 'take' | 'next_item' | 'previous_item';
-export type Intent = SharedIntent | 'next' | 'previous' | 'black' | 'restore' | 'toggle_black' | 'clear' | 'close';
+export type Intent = SharedIntent | 'next' | 'previous' | 'black' | 'restore' | 'toggle_black' | 'clear' | 'close'
+  | { jump: { token: string; index: number } };
 
 export interface Status {
+  revision: number;
   message: string;
   ready: boolean;
   opening: boolean;
@@ -58,6 +64,7 @@ export interface Status {
 }
 
 interface TauriCore {
+  Channel: new <T>(onmessage: (message: T) => void) => object;
   invoke<T>(command: string, args?: Record<string, unknown> | ArrayBuffer, options?: { headers: Record<string, string> }): Promise<T>;
   convertFileSrc(path: string, protocol: string): string;
 }
@@ -69,6 +76,12 @@ declare global {
 export function invoke<T>(command: string, args?: Record<string, unknown> | ArrayBuffer, options?: { headers: Record<string, string> }) {
   if (!window.__TAURI__) return Promise.reject(new Error('Open Pelita in the desktop app.'));
   return window.__TAURI__.core.invoke<T>(command, args, options);
+}
+
+export function channel<T>(receive: (message: T) => void) {
+  const core = window.__TAURI__?.core;
+  if (!core) throw new Error('Open Pelita in the desktop app.');
+  return new core.Channel<T>(receive);
 }
 
 export function assetUrl(asset: Asset) {

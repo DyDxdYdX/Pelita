@@ -1,11 +1,12 @@
 {
   "name": "pelita",
-  "version": "0.1.0-alpha.3",
+  "version": "0.1.0-alpha.4",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite",
     "check": "tsc --noEmit",
+    "test": "node --test",
     "build": "npm run check && vite build"
   },
   "dependencies": {

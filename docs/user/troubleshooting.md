@@ -10,14 +10,14 @@ Reconnect it, press **Refresh displays**, select the correct display, and press 
 
 ## A slide, PDF, or video will not open
 
-Check that it is a supported file in [Media support](media-support.md). Export PowerPoint to PDF before import. Try a smaller PDF or a known-good MP4 on the worship computer. Keep a text slide or static PDF ready for the essential message. Do not wait until the service to discover that a video cannot play.
+Check that it is a supported file in [Media support](media-support.md). For PPTX, open **Presentation conversion settings**, check that a converter is available, then **Rescan** after installing it. If some files in a batch fail, open **PowerPoint import results** and retry after resolving the error. Use **Regenerate slides** to replace missing slides or try another provider. If PowerPoint is blocked by an Office prompt or the deck renders incorrectly, export a static PDF from a trusted copy and import that PDF. Try a smaller PDF or a known-good MP4 on the worship computer. Keep a text slide or static PDF ready for the essential message. Do not wait until the service to discover that a video cannot play.
 
 ## Audio is silent or interrupted
 
-Check the computer's output device and volume, then Pelita's **Audio** volume. Select the item and use **Test audio** before presenting when no other track is active. During a service, **Play audio**, **Pause audio**, and **Restart audio** control an active MP3. **Clear** stops audio; advancing lyric slides and **Black** leave it playing. If an MP3 fails, relink it or use another track.
+Check the computer's output device and volume, then the audio volume at the bottom of Pelita. Select the item and use **Test audio** before presenting when no other track is active. If a playlist track fails, try **Next track** or run preflight to relink it. With a video on the output, clear or replace the video before resuming the playlist.
 
 ## Preflight shows a missing asset
 
-Press **Run preflight** and look under **Missing assets**. Choose **Relink** and select a replacement of the same media type, or **Skip** to remove that item. Run preflight again and preview the affected item.
+Press **Run preflight** and look under **Missing assets**. Choose **Relink** and select a replacement of the same media type, or **Skip** to select the next available item. Run preflight again and preview the affected item.
 
 If a problem persists, [report it](../../CONTRIBUTING.md#report-a-bug) with your operating system, Pelita version, file type, and what happened. Do not attach copyrighted church media unless you have permission to share it.

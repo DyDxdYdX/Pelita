@@ -10,11 +10,11 @@ No. The current app lets you create text slides and import your own permitted fi
 
 ## Can I open a PowerPoint file directly?
 
-No. Export it to PDF first, then use **Import files**. Check the PDF because animations and embedded media are not preserved as live effects.
+Yes. Select **Import PowerPoint** to prepare static slides from a `.pptx` file. Open **Presentation conversion settings** to check for PowerPoint on Windows or LibreOffice. See [Media support](media-support.md#import-a-powerpoint-presentation).
 
 ## Can I play music while moving through lyrics?
 
-Yes. Select a slide item and use **Attach MP3**. When you **Take** it, you can move through its slides while the MP3 continues. Use **Audio** controls to pause or restart it.
+Yes. Select a slide item and use **Attach MP3** to start its accompaniment when you select **Take**. For music you control separately, start a track from **Audio playlist**. The transport at the bottom controls playback in either case.
 
 ## What does “Take” mean?
 

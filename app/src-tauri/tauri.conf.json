@@ -1,6 +1,6 @@
 {
   "productName": "Pelita",
-  "version": "0.1.0-alpha.3",
+  "version": "0.1.0-alpha.4",
   "identifier": "org.pelita.desktop",
   "build": {
     "beforeDevCommand": "npm run dev",
