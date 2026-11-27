@@ -13,11 +13,15 @@ For example, place an opening hymn, Scripture reading, announcements, a sermon P
 
 ## Add accompaniment to lyrics
 
-Select a text or image slide item, then choose **Attach MP3** in **Audio**. You can use **Test audio** before projecting, when no other audio is active. When you **Take** that item, the track plays while you advance its lyrics manually. Use the **Audio** controls to pause, restart, and change volume. Advancing slides or using **Black** does not pause accompaniment; **Clear** stops it.
+Select a text or image slide item in **Playlist**, then choose **Attach MP3** below the item controls. Use **Test audio** before projecting when the transport is free. Taking the item starts its accompaniment. Use the audio controls at the bottom to pause, seek, restart, or change volume while advancing slides. **Clear** stops accompaniment.
+
+## Prepare the audio playlist
+
+Open **Audio playlist** and choose **Add tracks** to import one or more MP3s. The list also includes MP3s previously imported as standalone service items. Select a track to play it, move it up or down, or remove it from the service using the buttons below the list. The order saves with the service. Moving a track keeps slides and videos in their existing positions. Attached accompaniment stays with its slide item.
 
 ## Check before the service
 
-1. Press **Run preflight**. If **Missing assets** appears, choose **Relink** to supply a replacement of the same media type, or **Skip** to remove that item from this service.
+1. Press **Run preflight**. If **Missing assets** appears, choose **Relink** to supply a replacement of the same media type, or **Skip** to select the next available service item.
 2. Select every item and check **Preview**. Test an MP3 and preview any video while preparing; video preview is muted.
 3. Confirm the correct projector and test the speakers. Walk through the entire playlist in order, especially transitions between Scripture slides and a sermon PDF.
 4. Prepare a fallback: a text slide if a video will not play, or an exported PDF if a PowerPoint file cannot be imported. Keep the original files accessible for recovery.

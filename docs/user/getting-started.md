@@ -13,8 +13,8 @@ Pelita is currently an alpha release. Rehearse on your church computer, projecto
 1. In **Playlist**, use **New service** to name a service, or keep the service already selected. The small buttons have names when you hover over them.
 2. Choose **Text slides**. Enter an **Item title** and **Slide text**. Put `---` on a line by itself between slides, then select **Add slides**.
 3. Select the new item in **Playlist**. Its first slide appears in the private **Preview**.
-4. Connect an external display. In **Projector**, choose the audience display and press **Confirm display**. Pelita opens its output in black.
-5. Check that the audience screen is the correct one. Press **Take** to show the selected item. Use the arrows in **Live output** to move through its slides.
+4. Connect an external display. Open **Projector** from the top bar, choose the audience display, and press **Confirm display**. Pelita opens its output in black.
+5. Check that the audience screen is the correct one. Press **Take** to show the selected item. Use the **Slides** thumbnails or the arrows in **Live output** to move through its slides.
 
 If you only have one screen or your computer is mirroring the projector, read [Single or mirrored presentation](presenting.md#single-or-mirrored-presentation) first. Your desktop may be visible to the congregation before presentation starts and after it ends.
 

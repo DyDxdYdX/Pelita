@@ -1,4 +1,4 @@
-import { useEffect, useRef, type FormEvent, type ReactNode } from 'react';
+import { memo, useEffect, useRef, type FormEvent, type ReactNode } from 'react';
 import { assetUrl, fitText, type Content, type Slide } from './model';
 
 const paths = {
@@ -59,15 +59,53 @@ export function contentDetail(content: Content) {
   return `${content.slides.length} ${content.slides.length === 1 ? 'slide' : 'slides'}${content.audio ? ' · MP3' : ''}`;
 }
 
-export function SlideView({ slide }: { slide: Slide }) {
-  const text = useRef<HTMLDivElement>(null);
+export const SlideView = memo(function SlideView({ slide, thumbnail = false }: { slide: Slide; thumbnail?: boolean }) {
+  const text = useRef<HTMLSpanElement>(null);
+  const words = slide.kind === 'text' ? slide.text : null;
   useEffect(() => {
     if (text.current) return fitText(text.current);
-  }, [slide]);
+  }, [words]);
   return slide.kind === 'image'
-    ? <img className="frame-image" src={assetUrl(slide.asset)} alt={slide.asset.name} />
-    : <div ref={text} className="frame-text">{slide.text}</div>;
-}
+    ? <img className="frame-image" src={assetUrl(slide.asset)} alt={thumbnail ? '' : slide.asset.name}
+      loading={thumbnail ? 'lazy' : undefined} decoding={thumbnail ? 'async' : undefined} />
+    : <span ref={text} className="frame-text">{words}</span>;
+});
+
+export const SlideNavigator = memo(function SlideNavigator({ slides, previewIndex, liveIndex, choose }: {
+  slides: Slide[]; previewIndex: number; liveIndex?: number; choose: (index: number) => void;
+}) {
+  const strip = useRef<HTMLOListElement>(null);
+  const currentIndex = liveIndex ?? previewIndex;
+  useEffect(() => {
+    const list = strip.current!;
+    const thumb = list.children[currentIndex] as HTMLElement | undefined;
+    if (!thumb) return;
+    const start = thumb.offsetLeft - 6;
+    const end = thumb.offsetLeft + thumb.offsetWidth + 6;
+    if (start < list.scrollLeft) list.scrollLeft = start;
+    else if (end > list.scrollLeft + list.clientWidth) list.scrollLeft = end - list.clientWidth;
+  }, [slides, currentIndex]);
+  return <section className="panel slide-navigator" aria-label="Slide navigator">
+    <div className="panel-heading">
+      <h2><Icon name="layers" />Slides</h2>
+      <span className="count">{slides.length}</span>
+    </div>
+    <ol className="thumbnail-strip" ref={strip}>
+      {slides.map((slide, index) => <li key={index}>
+        <button type="button" className={index === liveIndex ? 'live-thumb' : index === previewIndex ? 'selected-thumb' : ''}
+          aria-label={`Slide ${index + 1}${index === liveIndex ? ', live' : ''}`}
+          aria-current={index === currentIndex ? 'step' : undefined}
+          title={slide.kind === 'text' ? slide.text : slide.asset.name} onClick={() => choose(index)}>
+          <span className="thumbnail-frame" aria-hidden="true">
+            {slide.kind === 'text' ? <span className="thumbnail-text-canvas"><SlideView slide={slide} thumbnail /></span>
+              : <SlideView slide={slide} thumbnail />}
+          </span>
+          <span>{index + 1}{index === liveIndex && ' · Live'}</span>
+        </button>
+      </li>)}
+    </ol>
+  </section>;
+});
 
 export function Dialog({ title, children, close, onSubmit, submitLabel, disabled }: {
   title: string; children: ReactNode; close: () => void;

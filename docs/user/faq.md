@@ -14,7 +14,7 @@ No. Export it to PDF first, then use **Import files**. Check the PDF because ani
 
 ## Can I play music while moving through lyrics?
 
-Yes. Select a slide item and use **Attach MP3**. When you **Take** it, you can move through its slides while the MP3 continues. Use **Audio** controls to pause or restart it.
+Yes. Select a slide item and use **Attach MP3** to start its accompaniment when you select **Take**. For music you control separately, start a track from **Audio playlist**. The transport at the bottom controls playback in either case.
 
 ## What does “Take” mean?
 

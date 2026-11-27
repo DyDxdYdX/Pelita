@@ -33,6 +33,7 @@ export interface Frame {
 }
 export interface Live {
   id: string;
+  token: string;
   title: string;
   kind: Content['kind'];
   index: number;
@@ -41,9 +42,11 @@ export interface Live {
 }
 
 export type SharedIntent = 'take' | 'next_item' | 'previous_item';
-export type Intent = SharedIntent | 'next' | 'previous' | 'black' | 'restore' | 'toggle_black' | 'clear' | 'close';
+export type Intent = SharedIntent | 'next' | 'previous' | 'black' | 'restore' | 'toggle_black' | 'clear' | 'close'
+  | { jump: { token: string; index: number } };
 
 export interface Status {
+  revision: number;
   message: string;
   ready: boolean;
   opening: boolean;
